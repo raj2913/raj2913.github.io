@@ -47,7 +47,6 @@ export const scoutingReport = [
   { label: "Current team", value: "Ignosis AI · Mumbai" },
   { label: "Previously", value: "Gnani.ai · Razorpay" },
   { label: "Education", value: "B.Tech CSE, VIT Vellore · 2021–25 · CGPA 8.81" },
-  { label: "On the court", value: "Basketball · district & state level" },
   { label: "Certified", value: "Google Cloud Digital Leader · Cloud Foundation" },
 ] as const;
 
