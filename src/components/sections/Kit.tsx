@@ -7,7 +7,9 @@ import { projects } from "@/content/projects";
 import { FadeUp, MaskLine } from "@/components/motion/Reveal";
 import { SectionTag } from "@/components/ui/SectionTag";
 
-const projectSlugs = new Set(projects.map((p) => p.slug));
+const projectTitles = Object.fromEntries(projects.map((p) => [p.slug, p.title]));
+const placeKind = (at: string) => (at === "archive" ? "archive" : at in projectTitles ? "play" : "role");
+const placeName = (at: string) => (at === "archive" ? "Archive" : projectTitles[at] ?? at);
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 export function Kit() {
@@ -110,29 +112,37 @@ export function Kit() {
                     aria-live="polite"
                   >
                     <p className="font-display text-[clamp(2.2rem,5vw,3.6rem)]">{tool.name}</p>
-                    <p className="mt-3 max-w-2xl text-lg leading-relaxed text-paper/85">{tool.evidence}</p>
-                    {tool.where.length > 0 && (
-                      <div className="mt-6">
-                        <p className="label text-muted">Shows up in</p>
-                        <ul className="mt-3 flex flex-wrap gap-2">
-                          {tool.where.map((w) => {
-                            const isPlay = projectSlugs.has(w);
-                            const isArchive = w === "archive";
-                            return (
-                              <li key={w}>
-                                <a
-                                  href={isArchive ? "#archive" : isPlay ? `#play-${w}` : "#experience"}
-                                  className="label inline-flex items-center gap-2 rounded-sm border border-line px-3 py-2 text-[0.62rem] text-paper/80 transition-colors hover:border-orange hover:text-orange"
-                                >
-                                  <span className={isPlay || isArchive ? "text-orange" : "text-signal"}>{isArchive ? "Projects" : isPlay ? "Play" : "Role"}</span>
-                                  {isArchive ? "from the archive" : w}
-                                </a>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    )}
+                    <p className="mt-3 max-w-2xl text-lg leading-relaxed text-paper/85">{tool.summary}</p>
+                    <ul className="mt-6 divide-y divide-line border-y border-line">
+                      {tool.points.map((pt) => {
+                        const kind = placeKind(pt.at);
+                        return (
+                          <li key={pt.text} className="grid gap-1 py-3.5 sm:grid-cols-[9.5rem_1fr] sm:gap-4">
+                            <span className={`label pt-1 text-[0.6rem] ${kind === "role" ? "text-signal" : "text-orange"}`}>{placeName(pt.at)}</span>
+                            <span className="leading-relaxed text-paper/80">{pt.text}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <div className="mt-6">
+                      <p className="label text-muted">Shows up in</p>
+                      <ul className="mt-3 flex flex-wrap gap-2">
+                        {[...new Set(tool.points.map((pt) => pt.at))].map((w) => {
+                          const kind = placeKind(w);
+                          return (
+                            <li key={w}>
+                              <a
+                                href={kind === "archive" ? "#archive" : kind === "play" ? `#play-${w}` : "#experience"}
+                                className="label inline-flex items-center gap-2 rounded-sm border border-line px-3 py-2 text-[0.62rem] text-paper/80 transition-colors hover:border-orange hover:text-orange"
+                              >
+                                <span className={kind === "role" ? "text-signal" : "text-orange"}>{kind === "archive" ? "Projects" : kind === "play" ? "Play" : "Role"}</span>
+                                {kind === "archive" ? "from the archive" : placeName(w)}
+                              </a>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
                   </motion.div>
                 </AnimatePresence>
               </div>
