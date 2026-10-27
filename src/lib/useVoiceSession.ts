@@ -317,7 +317,9 @@ export function useVoiceSession() {
   // Typing counts as the caller's voice on the waveform.
   const nudge = useCallback(() => {
     level.current = Math.min(1, level.current + 0.35);
-  }, []);
+    // Someone typing isn't silence.
+    if (phaseRef.current === "listening") armSilence();
+  }, [armSilence]);
 
   const end = useCallback(() => {
     timers.current.forEach((t) => window.clearTimeout(t));

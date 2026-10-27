@@ -44,6 +44,9 @@ To add a résumé: put the PDF in `public/` (for example `public/raj-vardhan-res
 
 The demo agent ("Courtside") books court time at a fictional gym. It is a **rule-based dialogue manager** (`src/lib/courtside.ts`), not a language model, and the page says so. The turn loop (`src/lib/useVoiceSession.ts`) is real:
 
+- understands days (today, tomorrow, weekdays, "next Thursday"), times ("7", "seven thirty", "half past six", "18:00", "noon", "6 to 8"), court size and length, and checks opening hours; one slot is always taken, so you can see it offer alternatives
+- handles edits at confirmation, cancel and reschedule, prices, hours, location, "are you a bot?", language requests, frustration, abuse and handoff to a person
+- behaviour is pinned by `npm run test:agent` (54 scripted conversations, also run in CI)
 - states: listening → processing → responding, plus interrupted and ended
 - barge-in: input while the agent is talking cuts it off, and only the words already said are kept
 - silence: one reprompt after 9 seconds, then a graceful end

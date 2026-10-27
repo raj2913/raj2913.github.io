@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Mic, MicOff, RotateCcw, Send, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { suggestions } from "@/lib/courtside";
+import { formatTime, suggestions, type Slots } from "@/lib/courtside";
 import { useVoiceSession, type Phase } from "@/lib/useVoiceSession";
 import { Waveform } from "@/components/voice/Waveform";
 import { EASE, FadeUp, MaskLine } from "@/components/motion/Reveal";
@@ -91,14 +91,15 @@ function StateRail({ phase }: { phase: Phase }) {
   );
 }
 
-function SlotBoard({ slots, filled }: { slots: { day?: string; time?: string; court?: string }; filled: string[] }) {
+function SlotBoard({ slots, filled }: { slots: Slots; filled: string[] }) {
   const cells = [
     { k: "day", label: "Day", v: slots.day },
-    { k: "time", label: "Time", v: slots.time },
+    { k: "time", label: "Time", v: slots.time && formatTime(slots.time) },
     { k: "court", label: "Court", v: slots.court },
+    { k: "hours", label: "Length", v: slots.hours ? `${slots.hours}h` : slots.day || slots.time || slots.court ? "1h" : undefined },
   ];
   return (
-    <div className="grid grid-cols-3 gap-px overflow-hidden rounded-sm border border-line bg-line">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-line bg-line sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
       {cells.map((c) => (
         <div key={c.k} className="bg-ink px-3 py-3">
           <p className="label text-[0.58rem] text-muted">{c.label}</p>
