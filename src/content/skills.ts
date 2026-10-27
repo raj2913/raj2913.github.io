@@ -7,7 +7,7 @@ export type Kit = { id: string; title: string; blurb: string; tools: Tool[] };
 export const kit: Kit[] = [
   {
     id: "voice",
-    title: "Voice AI & LLM systems",
+    title: "Voice AI, LLMs & ML",
     blurb: "Agents that talk to real people, and the evaluations that decide whether they ship.",
     tools: [
       { name: "Speech AI (STT / TTS)", evidence: "Benchmarked 8 LLM, STT and TTS providers under real telephony; ~22% lower WER in production.", where: ["Gnani.ai"] },
@@ -15,7 +15,7 @@ export const kit: Kit[] = [
       { name: "LLMs", evidence: "Prompt, model and flow experiments in production; tool-calling agents behind validators.", where: ["Ignosis AI", "parley"] },
       { name: "Evaluation design", evidence: "Eval suites built from production failures; a replay-based release gate.", where: ["Ignosis AI", "Gnani.ai", "parley"] },
       { name: "Voice orchestration", evidence: "Contributes to an in-house orchestration platform that runs alongside Bolna.", where: ["Ignosis AI"] },
-      { name: "RAG", evidence: "Listed on the resume under AI/ML.", where: [] },
+      { name: "Transformers · YOLO", evidence: "Earlier ML work: a BERT/RoBERTa multi-label emotion classifier behind a REST API, and YOLO object detection for PCB waste. Both are in the archive under the playbook.", where: ["archive"] },
     ],
   },
   {
@@ -54,17 +54,6 @@ export const kit: Kit[] = [
       { name: "SQLite", evidence: "WAL-mode trace store in phenix.", where: ["phenix"] },
       { name: "GCP · Cloud Run", evidence: "Deployed backend services; Google Cloud Digital Leader certified.", where: ["Gnani.ai"] },
       { name: "GitHub Actions", evidence: "CI, including an eval gate that runs on push.", where: ["parley", "phenix"] },
-    ],
-  },
-  {
-    id: "ml",
-    title: "Machine learning",
-    blurb: "The models underneath.",
-    tools: [
-      { name: "Hugging Face Transformers", evidence: "BERT and RoBERTa for multi-label emotion detection.", where: [] },
-      { name: "PyTorch", evidence: "Model training and inference.", where: [] },
-      { name: "scikit-learn", evidence: "Classical ML baselines.", where: [] },
-      { name: "YOLO", evidence: "Object detection for PCB waste classification.", where: [] },
     ],
   },
 ];

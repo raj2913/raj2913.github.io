@@ -109,12 +109,12 @@ export function About() {
           <div className="lg:col-span-6 lg:col-start-7">
             <FadeUp>
               <p className="text-[1.3rem] leading-snug text-paper md:text-[1.6rem]">
-                I played basketball at district and state level. What stayed with me isn&rsquo;t the hustle. It&rsquo;s the reading: where the help defense is, how much clock is left, who&rsquo;s open.
+                A live call doesn&rsquo;t wait. A caller interrupts, goes quiet, switches language, asks for a human, and the system has to answer like it saw it coming.
               </p>
             </FadeUp>
             <FadeUp delay={0.1}>
               <p className="mt-6 text-[1.02rem] leading-relaxed text-paper/70 md:text-lg">
-                Production voice AI is the same problem, live. A caller interrupts, goes quiet, switches language, asks for a human. The system has to read the moment and answer like it saw it coming. I build the parts that make that possible: backend services, conversation state, and the evaluations that decide what ships. Then I watch the tape: real calls, recurring failures, the next fix.
+                I build the parts that make that possible: backend services, conversation state, and the evaluations that decide what ships. Then I watch the tape: real calls, recurring failures, the next fix.
               </p>
             </FadeUp>
 

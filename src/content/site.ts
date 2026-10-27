@@ -29,7 +29,7 @@ export const site = {
   description:
     "Raj Vardhan is a Forward Deployed AI Engineer who ships production voice AI for enterprise clients: backend services, conversation state machines, and the evaluations that decide what goes live.",
   intro:
-    "I ship production voice AI: agents that hold real conversations, in real time, for enterprise clients. Before that, I played basketball at district and state level. Both reward the same thing: reading the moment before you move.",
+    "I ship production voice AI: agents that hold real conversations, in real time, for enterprise clients. Backend services, conversation state, and the evaluations that decide what goes live.",
 } as const;
 
 export const nav = [
@@ -55,7 +55,7 @@ export const readDecideExecute = [
   {
     n: "01",
     word: "Read",
-    court: "Where the help defense is. How much clock is left. Who is open.",
+    court: "The defense, the clock, the matchup in front of you.",
     code: "Production transcripts, latency traces, the failure that keeps coming back.",
   },
   {

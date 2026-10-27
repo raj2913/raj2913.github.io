@@ -117,14 +117,15 @@ export function Kit() {
                         <ul className="mt-3 flex flex-wrap gap-2">
                           {tool.where.map((w) => {
                             const isPlay = projectSlugs.has(w);
+                            const isArchive = w === "archive";
                             return (
                               <li key={w}>
                                 <a
-                                  href={isPlay ? `#play-${w}` : "#experience"}
+                                  href={isArchive ? "#archive" : isPlay ? `#play-${w}` : "#experience"}
                                   className="label inline-flex items-center gap-2 rounded-sm border border-line px-3 py-2 text-[0.62rem] text-paper/80 transition-colors hover:border-orange hover:text-orange"
                                 >
-                                  <span className={isPlay ? "text-orange" : "text-signal"}>{isPlay ? "Play" : "Role"}</span>
-                                  {w}
+                                  <span className={isPlay || isArchive ? "text-orange" : "text-signal"}>{isArchive ? "Projects" : isPlay ? "Play" : "Role"}</span>
+                                  {isArchive ? "from the archive" : w}
                                 </a>
                               </li>
                             );

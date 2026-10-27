@@ -139,7 +139,7 @@ export function Work() {
           <Play key={p.slug} p={p} />
         ))}
 
-        <div className="border-t border-line pt-10">
+        <div id="archive" className="scroll-mt-24 border-t border-line pt-10">
           <p className="label text-muted">From the archive</p>
           <ul className="mt-4 grid gap-px overflow-hidden rounded-sm border border-line bg-line md:grid-cols-2">
             {archive.map((a) => (
