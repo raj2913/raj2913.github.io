@@ -12,7 +12,7 @@ The concept is *the court is yours*: a career told as a game. Basketball gives t
 | **The voice lab** | An interactive voice agent demo: turn states, barge-in, silence handling, slot filling, optional mic and agent voice. |
 | **The game log** | Experience timeline with scoreboard stats. |
 | **The kit** | Skills, each linked to where it was actually used. |
-| **Final buzzer** | Contact. |
+| **Final buzzer** | Contact: a message form that emails Raj directly, "Book a 1:1", and direct lines (email, phone, LinkedIn, GitHub). |
 
 The shot clock in the nav counts down from 24 as you scroll, and hits 0.0 at the contact section.
 
@@ -51,6 +51,12 @@ The demo agent ("Courtside") books court time at a fictional gym. It is a **rule
 - **mic** (optional, click to enable) uses the browser's Web Speech API for speech-to-text; **agent voice** (optional, off by default) uses `speechSynthesis`
 
 No API keys, no backend, and nothing is sent anywhere by this site. To put a real model behind it, you would need a small server (for example a FastAPI or serverless function holding the API key) that the lab calls in place of `respond()`. Never put a key in this repo: everything here ships to the browser.
+
+## Contact form and 1:1 booking
+
+- **Messages** post to [FormSubmit](https://formsubmit.co) (`contactFormEndpoint` in `site.ts`), which forwards them to the inbox in the URL. The very first submission triggers an activation email; click the link in it once, and every message after that is delivered. FormSubmit then shows a random alias you can swap in for the email address.
+- **Book a 1:1** works out of the box: the visitor picks a slot (shown in IST and their own time zone), Google Calendar opens with Raj added as a guest, and saving it sends Raj a calendar invite. Raj also gets an email about the request.
+- For a real availability-aware scheduler, create a free booking page on [Cal.com](https://cal.com) (or Calendly, or a Google Calendar appointment schedule) and paste its link into `bookingUrl` in `site.ts`. The tab then embeds it.
 
 ## Deploy
 

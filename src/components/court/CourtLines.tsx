@@ -36,15 +36,17 @@ export function CourtLines({
   draw,
   circuit,
   stroke = "rgb(244 242 237 / 0.42)",
+  boundary = true,
 }: {
   draw: boolean;
+  boundary?: boolean;
   circuit?: MotionValue<number>;
   stroke?: string;
 }) {
   return (
     <svg viewBox="-4 -4 508 478" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
       <g fill="none" stroke={stroke} strokeWidth={2.2} strokeLinecap="round">
-        {COURT_PATHS.map((d, i) => (
+        {COURT_PATHS.slice(boundary ? 0 : 1).map((d, i) => (
           <motion.path
             key={d}
             d={d}

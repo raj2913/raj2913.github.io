@@ -104,7 +104,7 @@ export function Nav() {
           <div className="flex items-center gap-2">
             <ShotClock />
             <a
-              href={`mailto:${site.email}`}
+              href="#contact"
               className="hidden rounded-full bg-paper px-4 py-2 text-[0.8rem] font-semibold text-ink transition-colors hover:bg-orange sm:inline-block"
             >
               Get in touch
@@ -153,6 +153,9 @@ export function Nav() {
             <div className="mt-auto space-y-2">
               <a href={`mailto:${site.email}`} className="block rounded-full bg-orange px-5 py-4 text-center font-semibold text-ink">
                 {site.email}
+              </a>
+              <a href={`tel:${site.phone.tel}`} className="block rounded-full border border-paper/20 py-3 text-center text-sm">
+                {site.phone.display}
               </a>
               <div className="grid grid-cols-2 gap-2">
                 <a href={site.links.linkedin} target="_blank" rel="noreferrer" className="rounded-full border border-paper/20 py-3 text-center text-sm">
