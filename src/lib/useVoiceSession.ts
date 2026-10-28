@@ -16,6 +16,8 @@ export type Entry = {
 export type TurnInfo = { intent: Intent; filled: (keyof Slots)[]; engineMs: number; thinkMs: number };
 
 const SILENCE_MS = 9000;
+// Browsers can take many seconds to mark speech final, or never do. Treat this much quiet after the last partial as end of turn.
+const ENDPOINT_MS = 1100;
 const WORD_MS = 190;
 
 // Minimal Web Speech API typing (not in every TS DOM lib, and prefixed in Chrome).
@@ -24,6 +26,7 @@ type Recognition = {
   continuous: boolean;
   interimResults: boolean;
   onresult: ((e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
+  onstart: (() => void) | null;
   onend: (() => void) | null;
   onerror: ((e: { error: string }) => void) | null;
   start(): void;
@@ -42,7 +45,7 @@ export function useVoiceSession() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [agent, setAgent] = useState<AgentState>(initialState);
   const [turn, setTurn] = useState<TurnInfo | null>(null);
-  const [voiceOn, setVoiceOn] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(true);
   const [micOn, setMicOn] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
   const [partial, setPartial] = useState("");
@@ -51,7 +54,9 @@ export function useVoiceSession() {
   // Refs mirror state for timer and event callbacks.
   const phaseRef = useRef<Phase>("idle");
   const agentRef = useRef<AgentState>(agent);
-  const voiceRef = useRef(false);
+  const voiceRef = useRef(true);
+  // The agent's latest line, and until when the mic may still be hearing it from the speakers.
+  const echo = useRef({ text: "", until: 0 });
   const speakingId = useRef<number | null>(null);
   const timers = useRef<number[]>([]);
   const silenceTimer = useRef<number | null>(null);
@@ -65,13 +70,13 @@ export function useVoiceSession() {
   // Read by the waveform every frame, without re-rendering React.
   const level = useRef(0);
   const shownRef = useRef<Record<number, number>>({});
-  const entriesRef = useRef<Entry[]>([]);
+  // Sound on the mic but no words back means the browser's speech service isn't working.
+  const gotWords = useRef(false);
+  const endpoint = useRef<number | null>(null);
+  const loudMs = useRef(0);
   // Speech that lands while the agent is thinking waits for the next turn instead of being dropped.
   const pending = useRef("");
 
-  useEffect(() => {
-    entriesRef.current = entries;
-  }, [entries]);
 
   const go = useCallback((p: Phase) => {
     phaseRef.current = p;
@@ -119,6 +124,7 @@ export function useVoiceSession() {
       go("responding");
       const id = addEntry({ who: "agent", text, shown: 0 });
       speakingId.current = id;
+      echo.current = { text: text.toLowerCase(), until: Infinity };
       const words = text.split(" ");
       let finished = false;
       const finish = () => {
@@ -127,6 +133,9 @@ export function useVoiceSession() {
         stopReveal();
         setShown(id, words.length);
         speakingId.current = null;
+        echo.current.until = performance.now() + 1500;
+        // A fresh recognition session after the agent talks drops anything it heard of itself.
+        if (voiceRef.current) recognition.current?.abort();
         onDone();
       };
 
@@ -184,6 +193,7 @@ export function useVoiceSession() {
     const id = speakingId.current;
     stopReveal();
     speakingId.current = null;
+    echo.current.until = performance.now() + 800;
     setEntries((xs) => xs.map((x) => (x.id === id ? { ...x, cut: true, shown: Math.max(1, shownRef.current[id] ?? 1) } : x)));
     go("interrupted");
     return true;
@@ -224,7 +234,12 @@ export function useVoiceSession() {
   }, [handleInput]);
 
   const start = useCallback(() => {
-    setSupport({ stt: recognitionCtor() !== null, tts: "speechSynthesis" in window });
+    const tts = "speechSynthesis" in window;
+    setSupport({ stt: recognitionCtor() !== null, tts });
+    if (!tts) {
+      voiceRef.current = false;
+      setVoiceOn(false);
+    }
     timers.current.forEach((t) => window.clearTimeout(t));
     timers.current = [];
     stopReveal();
@@ -246,7 +261,13 @@ export function useVoiceSession() {
     if (!voiceRef.current && "speechSynthesis" in window) window.speechSynthesis.cancel();
   }, []);
 
+  const clearEndpoint = () => {
+    if (endpoint.current) window.clearTimeout(endpoint.current);
+    endpoint.current = null;
+  };
+
   const stopMic = useCallback(() => {
+    clearEndpoint();
     const rec = recognition.current;
     recognition.current = null;
     rec?.abort();
@@ -261,10 +282,14 @@ export function useVoiceSession() {
 
   // The mic hears the agent's own voice through the speakers. Ignore speech that is just the agent's line coming back.
   const isEcho = (heard: string) => {
-    if (!voiceRef.current || speakingId.current === null) return false;
-    const line = entriesRef.current.find((x) => x.id === speakingId.current)?.text.toLowerCase() ?? "";
+    if (!voiceRef.current) return false;
+    const speaking = speakingId.current !== null;
+    if (!speaking && performance.now() > echo.current.until) return false;
     const words = heard.toLowerCase().match(/[a-z0-9']+/g) ?? [];
-    return words.length > 0 && words.filter((w) => line.includes(w)).length / words.length >= 0.6;
+    // Once the agent has stopped, short replies ("full court", "yes") are the caller, not the echo.
+    if (words.length === 0 || (!speaking && words.length < 3)) return false;
+    const said = new Set(echo.current.text.match(/[a-z0-9']+/g) ?? []);
+    return words.filter((w) => said.has(w)).length / words.length >= 0.6;
   };
 
   // Only ever called from a click. Recognition starts before any await so browsers that need the click (Safari) accept it.
@@ -280,6 +305,8 @@ export function useVoiceSession() {
     rec.continuous = true;
     rec.interimResults = true;
     rec.onresult = (e) => {
+      gotWords.current = true;
+      clearEndpoint();
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i];
@@ -290,10 +317,18 @@ export function useVoiceSession() {
           handleRef.current(heard);
         } else interim += r[0].transcript;
       }
-      setPartial(interim.trim());
-      if (interim.trim()) {
+      const said = interim.trim();
+      setPartial(said);
+      if (said) {
         if (phaseRef.current === "listening") clearSilence();
         if (phaseRef.current === "responding") interrupt();
+        endpoint.current = window.setTimeout(() => {
+          if (recognition.current !== rec) return;
+          // Close the turn ourselves. Aborting discards this session, so the same words can't arrive again as a final.
+          setPartial("");
+          rec.abort();
+          handleRef.current(said);
+        }, ENDPOINT_MS);
       }
     };
     rec.onerror = (e) => {
@@ -309,16 +344,17 @@ export function useVoiceSession() {
         setMicError(fatal[e.error]);
       }
     };
-    let restarts = 0;
-    let since = performance.now();
+    // Sessions that die within a second, over and over, mean the service is failing rather than pausing.
+    let quickEnds = 0;
+    let began = performance.now();
+    rec.onstart = () => {
+      began = performance.now();
+    };
     rec.onend = () => {
       // Browsers end continuous recognition after a pause; restart while the mic is on, but not in a tight loop.
       if (recognition.current !== rec) return;
-      if (performance.now() - since > 5000) {
-        restarts = 0;
-        since = performance.now();
-      }
-      if (++restarts > 5) {
+      quickEnds = performance.now() - began < 1000 ? quickEnds + 1 : 0;
+      if (quickEnds > 5) {
         stopMic();
         setMicError("The speech service keeps stopping. Turn the mic on again, or type instead.");
         return;
@@ -333,6 +369,8 @@ export function useVoiceSession() {
       }, 200);
     };
     recognition.current = rec;
+    gotWords.current = false;
+    loudMs.current = 0;
     try {
       rec.start();
     } catch {
@@ -370,6 +408,20 @@ export function useVoiceSession() {
     for (const v of buf) sum += ((v - 128) / 128) ** 2;
     return Math.min(1, Math.sqrt(sum / buf.length) * 4);
   }, []);
+
+  useEffect(() => {
+    if (!micOn) return;
+    const t = window.setInterval(() => {
+      const lvl = readMic();
+      if (gotWords.current || lvl === null) return;
+      if (lvl > 0.12) loudMs.current += 250;
+      if (loudMs.current > 4000) {
+        gotWords.current = true; // warn once
+        setMicError("Your mic is picking up sound, but this browser's speech service isn't returning any words. Chrome or Edge on a desktop work best; you can always type.");
+      }
+    }, 250);
+    return () => window.clearInterval(t);
+  }, [micOn, readMic]);
 
   // Typing counts as the caller's voice on the waveform.
   const nudge = useCallback(() => {
