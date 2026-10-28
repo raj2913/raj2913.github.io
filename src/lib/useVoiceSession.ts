@@ -65,7 +65,13 @@ export function useVoiceSession() {
   // Read by the waveform every frame, without re-rendering React.
   const level = useRef(0);
   const shownRef = useRef<Record<number, number>>({});
+  const entriesRef = useRef<Entry[]>([]);
+  // Speech that lands while the agent is thinking waits for the next turn instead of being dropped.
+  const pending = useRef("");
 
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
 
   const go = useCallback((p: Phase) => {
     phaseRef.current = p;
@@ -165,6 +171,11 @@ export function useVoiceSession() {
     }
     go("listening");
     armSilence();
+    if (pending.current) {
+      const text = pending.current;
+      pending.current = "";
+      handleRef.current(text);
+    }
   }, [addEntry, armSilence, go]);
 
   // Barge-in: the caller speaks while the agent is talking. Keep only the words actually said.
@@ -181,6 +192,10 @@ export function useVoiceSession() {
   const handleInput = useCallback(
     (raw: string, silent = false) => {
       const text = raw.trim();
+      if (phaseRef.current === "processing" && text && !silent) {
+        pending.current = `${pending.current} ${text}`.trim();
+        return;
+      }
       if (phaseRef.current === "idle" || phaseRef.current === "ended" || phaseRef.current === "processing") return;
       if (!silent && !text) return;
       clearSilence();
@@ -220,6 +235,7 @@ export function useVoiceSession() {
     setTurn(null);
     setEntries([]);
     shownRef.current = {};
+    pending.current = "";
     later(() => speak(OPENER, afterAgentTurn), 350);
     go("processing");
   }, [afterAgentTurn, go, speak]);
@@ -231,8 +247,9 @@ export function useVoiceSession() {
   }, []);
 
   const stopMic = useCallback(() => {
-    recognition.current?.abort();
+    const rec = recognition.current;
     recognition.current = null;
+    rec?.abort();
     micStream.current?.getTracks().forEach((t) => t.stop());
     micStream.current = null;
     audioCtx.current?.close().catch(() => {});
@@ -242,26 +259,20 @@ export function useVoiceSession() {
     setPartial("");
   }, []);
 
-  // Only ever called from a click. The browser asks for permission; nothing is recorded or sent by this site.
-  const startMic = useCallback(async () => {
+  // The mic hears the agent's own voice through the speakers. Ignore speech that is just the agent's line coming back.
+  const isEcho = (heard: string) => {
+    if (!voiceRef.current || speakingId.current === null) return false;
+    const line = entriesRef.current.find((x) => x.id === speakingId.current)?.text.toLowerCase() ?? "";
+    const words = heard.toLowerCase().match(/[a-z0-9']+/g) ?? [];
+    return words.length > 0 && words.filter((w) => line.includes(w)).length / words.length >= 0.6;
+  };
+
+  // Only ever called from a click. Recognition starts before any await so browsers that need the click (Safari) accept it.
+  const startMic = useCallback(() => {
     setMicError(null);
     const Ctor = recognitionCtor();
     if (!Ctor) {
-      setMicError("Speech recognition isn't available in this browser. Try Chrome or Edge, or type instead.");
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStream.current = stream;
-      const ctx = new AudioContext();
-      const src = ctx.createMediaStreamSource(stream);
-      const an = ctx.createAnalyser();
-      an.fftSize = 512;
-      src.connect(an);
-      audioCtx.current = ctx;
-      analyser.current = an;
-    } catch {
-      setMicError("Microphone permission was denied. You can still type.");
+      setMicError("Speech recognition isn't available in this browser. Try Chrome, Edge or Safari, or type instead.");
       return;
     }
     const rec = new Ctor();
@@ -272,36 +283,82 @@ export function useVoiceSession() {
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i];
+        const heard = r[0].transcript.trim();
+        if (!heard || isEcho(heard)) continue;
         if (r.isFinal) {
           setPartial("");
-          handleInput(r[0].transcript);
+          handleRef.current(heard);
         } else interim += r[0].transcript;
       }
-      if (interim) {
-        setPartial(interim);
+      setPartial(interim.trim());
+      if (interim.trim()) {
         if (phaseRef.current === "listening") clearSilence();
         if (phaseRef.current === "responding") interrupt();
       }
     };
     rec.onerror = (e) => {
-      if (e.error === "not-allowed") setMicError("Microphone permission was denied. You can still type.");
+      const fatal: Record<string, string> = {
+        "not-allowed": "Microphone access is blocked. Allow it from the icon in the address bar, or type instead.",
+        "service-not-allowed": "This browser won't run speech recognition here. Try Chrome or Edge, or type instead.",
+        "audio-capture": "No microphone was found. Plug one in, or type instead.",
+        network: "This browser's speech service isn't reachable (Brave and some Chromium browsers don't include one). Try Chrome or Edge, or type instead.",
+        "language-not-supported": "This browser doesn't support English (India) recognition. Type instead.",
+      };
+      if (fatal[e.error] && recognition.current === rec) {
+        stopMic();
+        setMicError(fatal[e.error]);
+      }
     };
+    let restarts = 0;
+    let since = performance.now();
     rec.onend = () => {
-      // Chrome ends continuous recognition after a while; restart while the mic is on.
-      if (recognition.current === rec) {
+      // Browsers end continuous recognition after a pause; restart while the mic is on, but not in a tight loop.
+      if (recognition.current !== rec) return;
+      if (performance.now() - since > 5000) {
+        restarts = 0;
+        since = performance.now();
+      }
+      if (++restarts > 5) {
+        stopMic();
+        setMicError("The speech service keeps stopping. Turn the mic on again, or type instead.");
+        return;
+      }
+      window.setTimeout(() => {
+        if (recognition.current !== rec) return;
         try {
           rec.start();
         } catch {
           /* already started */
         }
-      }
+      }, 200);
     };
     recognition.current = rec;
-    rec.start();
+    try {
+      rec.start();
+    } catch {
+      recognition.current = null;
+      setMicError("Couldn't start the microphone. Type instead.");
+      return;
+    }
     setMicOn(true);
-  }, [handleInput, interrupt]);
 
-  const toggleMic = useCallback(() => (micOn ? stopMic() : void startMic()), [micOn, startMic, stopMic]);
+    // A second, separate stream drives the level meter. If it fails, recognition still works.
+    navigator.mediaDevices
+      ?.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+      .then((stream) => {
+        if (recognition.current !== rec) return stream.getTracks().forEach((t) => t.stop());
+        micStream.current = stream;
+        const ctx = new AudioContext();
+        const an = ctx.createAnalyser();
+        an.fftSize = 512;
+        ctx.createMediaStreamSource(stream).connect(an);
+        audioCtx.current = ctx;
+        analyser.current = an;
+      })
+      .catch(() => {});
+  }, [interrupt, stopMic]);
+
+  const toggleMic = useCallback(() => (micOn ? stopMic() : startMic()), [micOn, startMic, stopMic]);
 
   // Live mic level for the waveform.
   const readMic = useCallback(() => {
@@ -357,6 +414,7 @@ export function useVoiceSession() {
     send: handleInput,
     toggleVoice,
     toggleMic,
+    startMic,
     readMic,
     nudge,
   };

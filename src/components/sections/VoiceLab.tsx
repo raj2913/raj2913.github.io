@@ -132,6 +132,8 @@ export function VoiceLab() {
   const enter = () => {
     setOpen(true);
     s.start();
+    // Same click grants the mic, so a visitor can just start talking. Typing still works if they say no.
+    if (!s.micOn) s.startMic();
     window.setTimeout(() => input.current?.focus({ preventScroll: true }), 400);
   };
   const leave = () => {
@@ -190,7 +192,7 @@ export function VoiceLab() {
                   <div>
                     <p className="label text-signal">Courtside · demo agent</p>
                     <p className="mt-2 max-w-xl text-paper/70">
-                      Type or talk. Interrupt it. Go quiet. Watch the state machine handle it. Works without a microphone, and nothing you say leaves your browser.
+                      Type or talk. Interrupt it. Go quiet. Watch the state machine handle it. Your browser asks for the mic; say no and you can type instead. Nothing is recorded or stored by this site.
                     </p>
                   </div>
                   <button
@@ -344,10 +346,20 @@ export function VoiceLab() {
                             setDraft(e.target.value);
                             s.nudge();
                           }}
-                          placeholder={s.phase === "responding" ? "Type to interrupt…" : "Say something to the agent…"}
+                          placeholder={s.phase === "responding" ? (s.micOn ? "Talk or type to interrupt…" : "Type to interrupt…") : s.micOn ? "Listening… or type here" : "Say something to the agent…"}
                           autoComplete="off"
                           className="min-w-0 flex-1 rounded-full border border-line bg-transparent px-4 py-3 text-[0.95rem] placeholder:text-dim focus:border-signal focus:outline-none"
                         />
+                        <button
+                          type="button"
+                          onClick={s.toggleMic}
+                          aria-pressed={s.micOn}
+                          aria-label={s.micOn ? "Turn the microphone off" : "Turn the microphone on"}
+                          className={`relative grid size-11 shrink-0 place-items-center rounded-full border transition-colors ${s.micOn ? "border-signal bg-signal/15 text-signal" : "border-line text-muted hover:border-paper/50 hover:text-paper"}`}
+                        >
+                          {s.micOn && <span className="absolute inset-0 animate-ping rounded-full border border-signal/40 motion-reduce:hidden" aria-hidden />}
+                          {s.micOn ? <Mic className="size-4" /> : <MicOff className="size-4" />}
+                        </button>
                         <button
                           type="submit"
                           disabled={!canType || !draft.trim()}
@@ -359,7 +371,13 @@ export function VoiceLab() {
                       </form>
                     )}
                     {s.micError && <p className="mt-2 text-sm text-orange">{s.micError}</p>}
-                    {s.micOn && <p className="label mt-2 text-[0.58rem] text-dim">Speech is transcribed by your browser&rsquo;s speech service. Use headphones if agent voice is on.</p>}
+                    {s.micOn ? (
+                      <p className="label mt-2 text-[0.58rem] text-dim">
+                        <span className="text-signal">Mic on · just talk.</span> Your browser&rsquo;s speech service transcribes it. Headphones help if agent voice is on.
+                      </p>
+                    ) : (
+                      !s.micError && s.support.stt && <p className="label mt-2 text-[0.58rem] text-dim">Tap the mic to talk, or type.</p>
+                    )}
                   </div>
                 </div>
 
